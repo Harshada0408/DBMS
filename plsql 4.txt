@@ -1,0 +1,76 @@
+plsql 4
+
+
+
+
+DROP TABLE IF EXISTS fine;
+DROP TABLE IF EXISTS borrower;
+
+CREATE TABLE borrower(
+    roll_no INT,
+    name TEXT,
+    date_of_issue DATE,
+    name_of_book TEXT,
+    status CHAR(1)
+);
+
+CREATE TABLE fine(
+    roll_no INT,
+    return_date DATE,
+    amount NUMERIC(10,2)
+);
+
+INSERT INTO borrower VALUES
+(101, 'Alice', '2025-10-01', 'Mathematics', 'I'),
+(102, 'Bob', '2025-09-15', 'Physics', 'I'),
+(103, 'Charlie', '2025-09-20', 'Chemistry', 'I'),
+(104, 'David', '2025-10-05', 'Biology', 'I'),
+(105, 'Eve', '2025-09-25', 'English', 'I');
+
+DO $$
+DECLARE
+    v_roll_no INT := 103;
+    v_book TEXT := 'Chemistry';
+    v_issue_date DATE;
+    v_days INT;
+    v_fine NUMERIC := 0;
+BEGIN
+    SELECT date_of_issue INTO v_issue_date
+    FROM borrower
+    WHERE roll_no = v_roll_no AND name_of_book = v_book;
+
+    IF NOT FOUND THEN
+        RAISE NOTICE 'No record found for roll_no % and book %', v_roll_no, v_book;
+        RETURN;
+    END IF;
+
+    v_days := CURRENT_DATE - v_issue_date;
+    RAISE NOTICE 'Days since issue: %', v_days;
+
+    IF v_days > 30 THEN
+        v_fine := (30 * 5) + (v_days - 30) * 50;
+    ELSIF v_days >= 15 THEN
+        v_fine := v_days * 5;
+    ELSE
+        v_fine := 0;
+    END IF;
+
+    RAISE NOTICE 'Calculated fine: Rs.%', v_fine;
+
+    UPDATE borrower
+    SET status = 'R'
+    WHERE roll_no = v_roll_no AND name_of_book = v_book;
+
+    IF v_fine > 0 THEN
+        INSERT INTO fine VALUES (v_roll_no, CURRENT_DATE, v_fine);
+    END IF;
+
+    RAISE NOTICE 'Return and fine process completed successfully!';
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Unexpected error occurred!';
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT * FROM borrower;
+SELECT * FROM fine;

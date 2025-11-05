@@ -1,0 +1,83 @@
+mongo 3
+
+
+
+
+//----------------------------------------------------------
+// MAPREDUCE EXAMPLE – BILL COLLECTION
+//----------------------------------------------------------
+
+// 1️⃣ Use Database
+use bill;
+
+// 2️⃣ Insert Sample Data (if not already present)
+db.pay.drop(); // Clear existing data
+
+db.pay.insertMany([
+  { Cust_ID: "A123", Product: "Milk", Amount: 40, Status: "P" },
+  { Cust_ID: "A123", Product: "Parle_G", Amount: 50, Status: "NP" },
+  { Cust_ID: "A123", Product: "Lays Chips", Amount: 40, Status: "P" },
+  { Cust_ID: "B123", Product: "Mentos", Amount: 10, Status: "P" },
+  { Cust_ID: "B123", Product: "Maggie", Amount: 60, Status: "NP" }
+]);
+
+print("✅ Sample Data:");
+db.pay.find().pretty();
+
+//----------------------------------------------------------
+// 3️⃣ MAPREDUCE – Calculate Total Pending Amount per Customer
+//----------------------------------------------------------
+
+// Map Function: emits customer ID and amount only for unpaid items
+var mapFunc = function() {
+    if (this.Status === "NP") {        // Only consider Not Paid items
+        emit(this.Cust_ID, this.Amount);
+    }
+};
+
+// Reduce Function: sums all amounts for each customer
+var reduceFunc = function(keyCustID, valueAmounts) {
+    return Array.sum(valueAmounts);
+};
+
+// Optional Finalize Function: add descriptive info
+var finalizeFunc = function(keyCustID, reducedVal) {
+    return { totalPending: reducedVal, note: "Pending payment" };
+};
+
+// Execute MapReduce
+db.pay.mapReduce(
+    mapFunc,             
+    reduceFunc,          
+    {
+        out: "PendingAmounts",  // Output collection
+        finalize: finalizeFunc  // Optional finalize for better output
+    }
+);
+
+print("🎯 Total Pending Amount per Customer:");
+db.PendingAmounts.find().pretty();
+
+//----------------------------------------------------------
+// 4️⃣ MAPREDUCE – Calculate Total Amount (All Payments) per Customer
+//----------------------------------------------------------
+
+// Map Function: emits customer ID and amount for all items
+var mapFuncAll = function() {
+    emit(this.Cust_ID, this.Amount);
+};
+
+// Reduce Function: sums all amounts for each customer
+var reduceFuncAll = function(keyCustID, valueAmounts) {
+    return Array.sum(valueAmounts);
+};
+
+// Execute MapReduce for all payments
+db.pay.mapReduce(
+    mapFuncAll,
+    reduceFuncAll,
+    { out: "TotalAmounts" }  // Output collection
+);
+
+print("🎯 Total Amount per Customer (All Payments):");
+db.TotalAmounts.find().pretty();

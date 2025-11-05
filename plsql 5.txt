@@ -1,0 +1,86 @@
+plsql 5
+
+
+
+
+DROP TABLE IF EXISTS result;
+DROP TABLE IF EXISTS stud_marks;
+
+CREATE TABLE stud_marks (
+    name VARCHAR(20),
+    total_marks INT
+);
+
+CREATE TABLE result (
+    roll_no SERIAL PRIMARY KEY,
+    name VARCHAR(20),
+    class VARCHAR(30)
+);
+
+INSERT INTO stud_marks VALUES
+('Suresh', 995),
+('Harish', 865),
+('Samarth', 920),
+('Mohan', 1000),
+('Soham', 745);
+
+INSERT INTO result (name) VALUES
+('Suresh'),
+('Harish'),
+('Samarth'),
+('Mohan'),
+('Soham');
+
+CREATE OR REPLACE PROCEDURE proc_grade(p_roll INT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_name VARCHAR(20);
+    v_marks INT;
+    v_class VARCHAR(25);
+BEGIN
+    SELECT name INTO v_name FROM result WHERE roll_no = p_roll;
+    SELECT total_marks INTO v_marks FROM stud_marks WHERE name = v_name;
+
+    IF v_marks BETWEEN 990 AND 1500 THEN
+        v_class := 'Distinction';
+    ELSIF v_marks BETWEEN 900 AND 989 THEN
+        v_class := 'First Class';
+    ELSIF v_marks BETWEEN 825 AND 899 THEN
+        v_class := 'Higher Second Class';
+    ELSE
+        v_class := 'Fail';
+    END IF;
+
+    UPDATE result
+    SET class = v_class
+    WHERE roll_no = p_roll;
+
+    RAISE NOTICE 'Roll No: %, Name: %, Marks: %, Class: %', p_roll, v_name, v_marks, v_class;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE NOTICE 'No record found for Roll No: %', p_roll;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION func_grade(p_roll INT)
+RETURNS VARCHAR
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_class VARCHAR(25);
+BEGIN
+    CALL proc_grade(p_roll);
+    SELECT class INTO v_class FROM result WHERE roll_no = p_roll;
+    RETURN v_class;
+END;
+$$;
+
+SELECT func_grade(1);
+SELECT func_grade(2);
+SELECT func_grade(3);
+SELECT func_grade(4);
+SELECT func_grade(5);
+
+SELECT * FROM result;

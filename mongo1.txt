@@ -1,0 +1,219 @@
+mongo1
+
+
+
+// --------------------------------------------------
+// PIZZA DELIVERY SYSTEM – MONGODB CRUD OPERATIONS
+// --------------------------------------------------
+
+// 1️⃣  CREATE / USE DATABASE
+use PizzaDeliverySystem; 
+// Creates a new database called 'PizzaDeliverySystem' if it doesn't exist
+// or switches to it if it already exists
+
+// --------------------------------------------------
+// 2️⃣  CREATE COLLECTIONS & INSERT DOCUMENTS
+// --------------------------------------------------
+
+// Insert multiple pizza documents into the 'pizzas' collection
+db.pizzas.insertMany([
+  { _id: 1, name: "Margherita", size: "Medium", price: 300, ingredients: ["Cheese", "Tomato"], tags: ["Vegetarian", "Classic"] },
+  { _id: 2, name: "Pepperoni", size: "Large", price: 450, ingredients: ["Cheese", "Pepperoni"], tags: ["Non-Vegetarian", "Spicy"] },
+  { _id: 3, name: "Farmhouse", size: "Medium", price: 400, ingredients: ["Cheese", "Vegetables"], tags: ["Vegetarian", "Loaded"] }
+]);
+// insertMany → Adds multiple documents at once
+// _id → unique identifier for each pizza
+// ingredients → array field listing pizza ingredients
+// tags → array field for categories/labels
+
+// Insert one pizza document
+db.pizzas.insertOne({
+  _id: 4,
+  name: "Devinshire",
+  size: "Medium",
+  price: 230,
+  ingredients: ["Basil", "Tomato"],
+  tags: ["Vegetarian", "American"]
+});
+// insertOne → Adds a single document to the collection
+
+// Insert multiple customer documents into 'customers' collection
+db.customers.insertMany([
+  { _id: 1, name: "Amit", phone: "9001112233", address: "Sector 10, City Center", favorite_pizzas: ["Margherita"] },
+  { _id: 2, name: "Sara", phone: "9003445566", address: "Lakeview Apartments", favorite_pizzas: ["Pepperoni"] }
+]);
+// favorite_pizzas → array field storing customer’s favorite pizzas
+
+// Insert multiple orders into 'orders' collection
+db.orders.insertMany([
+  { _id: 1001, customer_id: 1, pizza_ids: [1, 3], total: 700, order_date: ISODate("2025-07-26T18:30:00Z"), status: "Delivered" },
+  { _id: 1002, customer_id: 2, pizza_ids: [2], total: 450, order_date: ISODate("2025-07-27T11:00:00Z"), status: "Preparing" }
+]);
+// pizza_ids → array field storing ordered pizza IDs
+// order_date → ISODate format for date and time
+
+// --------------------------------------------------
+// 3️⃣  READ OPERATIONS (QUERY, LOGICAL OPERATORS, SORT, LIMIT, PROJECTION)
+// --------------------------------------------------
+
+// View all pizzas with pretty formatting
+db.pizzas.find().pretty();
+// pretty() → formats JSON output for readability
+
+// View all customers
+db.customers.find().pretty();
+
+// View all orders
+db.orders.find().pretty();
+
+// Find pizzas with price greater than 350
+db.pizzas.find({ price: { $gt: 350 } });
+// $gt → comparison operator: greater than
+
+// Find orders with total greater than or equal to 700
+db.orders.find({ total: { $gte: 700 } });
+// $gte → greater than or equal
+
+// Find Medium pizzas with price > 300 using $and logical operator
+db.pizzas.find({
+  $and: [
+    { size: "Medium" },
+    { price: { $gt: 300 } }
+  ]
+});
+// $and → all conditions must be true
+
+// Find customers named Amit OR Sara using $or
+db.customers.find({
+  $or: [
+    { name: "Amit" },
+    { name: "Sara" }
+  ]
+});
+// $or → at least one condition must be true
+
+// Find pizzas with price not greater than 400 using $not
+db.pizzas.find({ price: { $not: { $gt: 400 } } });
+// $not → negates a condition (price ≤ 400)
+
+// Find customers where neither condition is true using $nor
+db.customers.find({
+  $nor: [
+    { name: "Amit" },
+    { phone: "9003445566" }
+  ]
+});
+// $nor → none of the conditions should be true
+
+// Find pizzas with tags either Spicy or Loaded using $in
+db.pizzas.find({ tags: { $in: ["Spicy", "Loaded"] } });
+
+// Find pizzas excluding Farmhouse and Pepperoni using $nin
+db.pizzas.find({ name: { $nin: ["Farmhouse", "Pepperoni"] } });
+
+// --------------------------------------------------
+// SORT, LIMIT, PROJECTION examples
+// --------------------------------------------------
+
+// Show pizza names and prices only, sorted by price descending, limit 3
+db.pizzas.find({}, { name: 1, price: 1, _id: 0 }).sort({ price: -1 }).limit(3);
+// {} → no filter, returns all documents
+// Projection → { name: 1, price: 1, _id: 0 } → include name & price, exclude _id
+// sort({ price: -1 }) → descending
+// limit(3) → return only 3 documents
+
+// Show all orders sorted by total ascending, limit 5
+db.orders.find().sort({ total: 1 }).limit(5);
+
+// Show customer names only, sorted alphabetically
+db.customers.find({}, { name: 1, _id: 0 }).sort({ name: 1 });
+
+// Combined example: Medium pizzas, only name & price, sorted by price descending, limit 2
+db.pizzas.find({ size: "Medium" }, { name: 1, price: 1, _id: 0 }).sort({ price: -1 }).limit(2);
+
+// --------------------------------------------------
+// 4️⃣  UPDATE OPERATIONS
+// --------------------------------------------------
+
+// Update single field: change Amit's phone
+db.customers.updateOne({ name: "Amit" }, { $set: { phone: "9000000000" } });
+// $set → updates or adds a field
+
+// Increment numeric field: increase order total by 50
+db.orders.updateOne({ _id: 1002 }, { $inc: { total: 50 } });
+// $inc → increment numeric field by specified value
+
+// Add element to array: add 'BestSeller' tag to Margherita
+db.pizzas.updateOne({ name: "Margherita" }, { $push: { tags: "BestSeller" } });
+// $push → adds element to array
+
+// Add multiple elements to array using $each
+db.pizzas.updateOne({ name: "Farmhouse" }, { $push: { tags: { $each: ["Offers", "Recommended"] } } });
+// $each → adds multiple elements at once
+
+// Add unique element to array using $addToSet
+db.pizzas.updateOne({ name: "Pepperoni" }, { $addToSet: { tags: "Classic" } });
+// $addToSet → adds element only if it doesn't exist
+
+// Rename a field: phone → contact
+db.customers.updateOne({ name: "Amit" }, { $rename: { phone: "contact" } });
+// $rename → renames a field
+
+// Multiply numeric field: increase price by 10%
+db.pizzas.updateOne({ name: "Pepperoni" }, { $mul: { price: 1.1 } });
+// $mul → multiply numeric field
+
+// Remove specific field: remove Sara's address
+db.customers.updateOne({ name: "Sara" }, { $unset: { address: "" } });
+// $unset → deletes a field from a document
+
+// --------------------------------------------------
+// 5️⃣  SAVE METHOD
+// --------------------------------------------------
+
+// Update existing document using save
+var pizza = db.pizzas.findOne({ name: "Margherita" });
+pizza.price = 320;
+db.pizzas.save(pizza);
+// save() → replaces the document if _id exists; otherwise inserts new
+
+// Insert new document using save
+db.pizzas.save({
+  _id: 5,
+  name: "Veggie Delight",
+  size: "Small",
+  price: 250,
+  ingredients: ["Cheese", "Bell Pepper", "Onion"],
+  tags: ["Vegetarian", "Healthy"]
+});
+
+// --------------------------------------------------
+// 6️⃣  DELETE OPERATIONS
+// --------------------------------------------------
+
+// Delete one document: remove Devinshire pizza
+db.pizzas.deleteOne({ name: "Devinshire" });
+
+// Delete many documents: remove pizzas with price < 300
+db.pizzas.deleteMany({ price: { $lt: 300 } });
+
+// Remove element from array: remove Margherita from Amit's favorite pizzas
+db.customers.updateOne({ name: "Amit" }, { $pull: { favorite_pizzas: "Margherita" } });
+// $pull → removes matching elements from an array
+
+// Remove last element from pizza_ids array in order 1001
+db.orders.updateOne({ _id: 1001 }, { $pop: { pizza_ids: 1 } });
+// $pop → removes first (-1) or last (1) element from array
+
+// --------------------------------------------------
+// 7️⃣  BONUS – AGGREGATION EXAMPLE
+// --------------------------------------------------
+
+// Aggregate orders by customer, count total orders and sum total_amount, sort descending
+db.orders.aggregate([
+  { $group: { _id: "$customer_id", total_orders: { $sum: 1 }, total_amount: { $sum: "$total" } } },
+  { $sort: { total_amount: -1 } }
+]);
+// $group → groups documents by _id (customer_id), calculates aggregates
+// $sum → sums values or counts documents
+// $sort → sorts by total_amount descending

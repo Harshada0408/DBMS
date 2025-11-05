@@ -1,0 +1,55 @@
+plsql 7
+
+
+
+
+DROP TABLE IF EXISTS library_audit;
+DROP TABLE IF EXISTS library;
+
+CREATE TABLE library (
+    bno INT PRIMARY KEY,
+    bname VARCHAR(40),
+    author VARCHAR(20),
+    allowed_days INT
+);
+
+CREATE TABLE library_audit (
+    audit_id SERIAL PRIMARY KEY,
+    bno INT,
+    old_allowed_days INT,
+    new_allowed_days INT,
+    action VARCHAR(10),
+    action_time TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO library VALUES (1,'Database Systems','Tom',10);
+INSERT INTO library VALUES (2,'System Programming','John',20);
+INSERT INTO library VALUES (3,'Computer Networks','Sara',18);
+INSERT INTO library VALUES (4,'Agile Project Management','Ken',24);
+INSERT INTO library VALUES (5,'Python for Data Analysis','Wes',12);
+
+CREATE OR REPLACE FUNCTION library_audit_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        INSERT INTO library_audit(bno, old_allowed_days, new_allowed_days, action)
+        VALUES (OLD.bno, OLD.allowed_days, NEW.allowed_days, 'UPDATE');
+    ELSIF TG_OP = 'DELETE' THEN
+        INSERT INTO library_audit(bno, old_allowed_days, new_allowed_days, action)
+        VALUES (OLD.bno, OLD.allowed_days, NULL, 'DELETE');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER library_audit_trigger
+AFTER UPDATE OR DELETE ON library
+FOR EACH ROW
+EXECUTE FUNCTION library_audit_func();
+
+UPDATE library SET allowed_days = 15 WHERE bno = 1;
+UPDATE library SET allowed_days = 25 WHERE bno = 2;
+DELETE FROM library WHERE bno = 3;
+
+SELECT * FROM library;
+SELECT * FROM library_audit ORDER BY action_time;
