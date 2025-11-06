@@ -1,0 +1,147 @@
+correct plsql7
+
+
+
+
+
+
+
+
+
+
+
+
+-- =========================================================
+-- 🧩 DROP OLD TABLES IF THEY EXIST
+-- =========================================================
+DROP TABLE IF EXISTS library_audit;
+DROP TABLE IF EXISTS library;
+
+-- =========================================================
+-- 🏛 CREATE MAIN TABLE: library
+-- =========================================================
+CREATE TABLE library (
+    bno INT PRIMARY KEY,
+    bname VARCHAR(40),
+    author VARCHAR(20),
+    allowed_days INT
+);
+
+-- =========================================================
+-- 🗃 CREATE AUDIT TABLE: library_audit
+-- =========================================================
+CREATE TABLE library_audit (
+    audit_id SERIAL PRIMARY KEY,
+    bno INT,
+    old_allowed_days INT,
+    new_allowed_days INT,
+    action VARCHAR(10),
+    action_time TIMESTAMP DEFAULT NOW()
+);
+
+-- =========================================================
+-- 📚 INSERT SAMPLE DATA
+-- =========================================================
+INSERT INTO library VALUES 
+(1, 'Database Systems', 'Tom', 10),
+(2, 'System Programming', 'John', 20),
+(3, 'Computer Networks', 'Sara', 18),
+(4, 'Agile Project Management', 'Ken', 24),
+(5, 'Python for Data Analysis', 'Wes', 12);
+
+-- =========================================================
+-- 🔹 1️⃣ ROW-LEVEL BEFORE TRIGGER
+-- Runs before each row is updated or deleted
+-- Used for validation or logging before actual change
+-- =========================================================
+CREATE OR REPLACE FUNCTION before_row_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        RAISE NOTICE 'BEFORE UPDATE (Row-Level): Book % changing allowed_days from % to %',
+            OLD.bno, OLD.allowed_days, NEW.allowed_days;
+    ELSIF TG_OP = 'DELETE' THEN
+        RAISE NOTICE 'BEFORE DELETE (Row-Level): Book % with allowed_days % will be deleted',
+            OLD.bno, OLD.allowed_days;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER before_row_trigger
+BEFORE UPDATE OR DELETE ON library
+FOR EACH ROW
+EXECUTE FUNCTION before_row_func();
+
+-- =========================================================
+-- 🔹 2️⃣ ROW-LEVEL AFTER TRIGGER
+-- Runs after each row is updated or deleted
+-- Used for auditing old and new values
+-- =========================================================
+CREATE OR REPLACE FUNCTION after_row_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        INSERT INTO library_audit (bno, old_allowed_days, new_allowed_days, action)
+        VALUES (OLD.bno, OLD.allowed_days, NEW.allowed_days, 'UPDATE');
+    ELSIF TG_OP = 'DELETE' THEN
+        INSERT INTO library_audit (bno, old_allowed_days, new_allowed_days, action)
+        VALUES (OLD.bno, OLD.allowed_days, NULL, 'DELETE');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER after_row_trigger
+AFTER UPDATE OR DELETE ON library
+FOR EACH ROW
+EXECUTE FUNCTION after_row_func();
+
+-- =========================================================
+-- 🔹 3️⃣ STATEMENT-LEVEL BEFORE TRIGGER
+-- Runs once before the UPDATE or DELETE statement starts
+-- =========================================================
+CREATE OR REPLACE FUNCTION before_stmt_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE NOTICE 'BEFORE STATEMENT (Statement-Level) Trigger Fired for operation: %', TG_OP;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER before_stmt_trigger
+BEFORE UPDATE OR DELETE ON library
+FOR EACH STATEMENT
+EXECUTE FUNCTION before_stmt_func();
+
+-- =========================================================
+-- 🔹 4️⃣ STATEMENT-LEVEL AFTER TRIGGER
+-- Runs once after the UPDATE or DELETE statement completes
+-- =========================================================
+CREATE OR REPLACE FUNCTION after_stmt_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE NOTICE 'AFTER STATEMENT (Statement-Level) Trigger Fired for operation: %', TG_OP;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER after_stmt_trigger
+AFTER UPDATE OR DELETE ON library
+FOR EACH STATEMENT
+EXECUTE FUNCTION after_stmt_func();
+
+-- =========================================================
+-- 🧾 TEST THE TRIGGERS
+-- =========================================================
+-- UPDATE a record (fires all 4 triggers)
+UPDATE library SET allowed_days = 15 WHERE bno = 1;
+
+-- DELETE a record (fires all 4 triggers)
+DELETE FROM library WHERE bno = 2;
+
+-- =========================================================
+-- 🔍 VIEW RESULTS
+-- =========================================================
+SELECT * FROM library;         -- Current library data
+SELECT * FROM library_audit;   -- Audit history
