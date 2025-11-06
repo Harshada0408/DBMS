@@ -1,0 +1,76 @@
+
+plsql6 corrected
+
+
+5. Cursors: (All types: Implicit, Explicit, Cursor FOR Loop, Parameterized Cursor).
+
+
+Code:
+-- 1️⃣ Drop tables if they exist
+DROP TABLE IF EXISTS O_RollCall;
+DROP TABLE IF EXISTS N_RollCall;
+
+
+-- 2️⃣ Create tables
+CREATE TABLE O_RollCall (
+    roll_no INT PRIMARY KEY,
+    name VARCHAR(50)
+);
+
+
+CREATE TABLE N_RollCall (
+    roll_no INT PRIMARY KEY,
+    name VARCHAR(50)
+);
+
+
+-- 3️⃣ Insert sample data
+INSERT INTO O_RollCall (roll_no, name) VALUES
+(101, 'Alice'),
+(102, 'Bob');
+
+
+INSERT INTO N_RollCall (roll_no, name) VALUES
+(102, 'Bob'),
+(103, 'Charlie'),
+(104, 'David');
+
+
+-- 4️⃣ Merge using a “parameterized-like” cursor
+DO
+$$
+DECLARE
+    v_min_roll_no INT := 0;  -- parameter for the cursor simulation
+    r_rec RECORD;
+    cur_n_rollcall REFCURSOR;  -- explicit cursor
+BEGIN
+    -- Open cursor with a parameter
+    OPEN cur_n_rollcall FOR
+        SELECT roll_no, name
+        FROM N_RollCall
+        WHERE roll_no >= v_min_roll_no;
+
+
+    LOOP
+        FETCH cur_n_rollcall INTO r_rec;
+        EXIT WHEN NOT FOUND;
+
+
+        -- Insert into O_RollCall if not exists
+        IF NOT EXISTS (SELECT 1 FROM O_RollCall WHERE roll_no = r_rec.roll_no) THEN
+            INSERT INTO O_RollCall (roll_no, name)
+            VALUES (r_rec.roll_no, r_rec.name);
+        END IF;
+    END LOOP;
+
+
+    CLOSE cur_n_rollcall;
+
+
+    RAISE NOTICE 'Merge Completed Successfully!';
+END;
+$$;
+
+
+-- 5️⃣ Verify merged table
+SELECT * FROM O_RollCall;
