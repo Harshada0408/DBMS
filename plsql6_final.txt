@@ -1,0 +1,63 @@
+-- 1️⃣ Drop tables if they exist
+DROP TABLE IF EXISTS O_RollCall CASCADE;
+DROP TABLE IF EXISTS N_RollCall CASCADE;
+
+-- 2️⃣ Create tables
+CREATE TABLE O_RollCall (
+    roll_no INT PRIMARY KEY,
+    name VARCHAR(50)
+);
+
+CREATE TABLE N_RollCall (
+    roll_no INT PRIMARY KEY,
+    name VARCHAR(50)
+);
+
+-- 3️⃣ Insert sample data
+INSERT INTO O_RollCall (roll_no, name) VALUES
+(101, 'Alice'),
+(102, 'Bob');
+
+INSERT INTO N_RollCall (roll_no, name) VALUES
+(102, 'Bob'),
+(103, 'Charlie'),
+(104, 'David');
+
+-- 4️⃣ Create procedure using parameterized cursor
+CREATE OR REPLACE PROCEDURE merge_rollcalls()
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    r_row RECORD;           -- record variable to loop through N_RollCall
+    r_rec RECORD;           -- record variable to fetch cursor data
+    c_merge CURSOR(p_roll_no INT) FOR
+        SELECT roll_no, name
+        FROM N_RollCall
+        WHERE roll_no = p_roll_no;
+BEGIN
+    -- Loop through all rows of N_RollCall
+    FOR r_row IN SELECT roll_no FROM N_RollCall LOOP
+        OPEN c_merge(r_row.roll_no);        -- pass parameter
+        FETCH c_merge INTO r_rec;
+
+        -- Insert only if not already in O_RollCall
+        IF NOT EXISTS (SELECT 1 FROM O_RollCall WHERE roll_no = r_rec.roll_no) THEN
+            INSERT INTO O_RollCall (roll_no, name)
+            VALUES (r_rec.roll_no, r_rec.name);
+            RAISE NOTICE 'Inserted: Roll_no=% | Name=%', r_rec.roll_no, r_rec.name;
+        ELSE
+            RAISE NOTICE 'Skipped duplicate: Roll_no=% | Name=%', r_rec.roll_no, r_rec.name;
+        END IF;
+
+        CLOSE c_merge;
+    END LOOP;
+
+    RAISE NOTICE '🎯 Merge Completed Successfully!';
+END;
+$$;
+
+-- 5️⃣ Call the procedure
+CALL merge_rollcalls();
+
+-- 6️⃣ Verify the merged table
+SELECT * FROM O_RollCall ORDER BY roll_no;
